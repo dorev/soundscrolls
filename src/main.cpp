@@ -1,33 +1,54 @@
-#include <QCoreApplication>
-#include <QWebSocketServer>
-#include <QWebSocket>
-#include <QtSql/QSqlDatabase>
+#include <QApplication>
+#include <QWidget>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLineEdit>
+#include <QTreeView>
+#include <QTableView>
+#include <QFileSystemModel>
+#include <QSplitter>
 
 int main(int argc, char *argv[])
 {
-    QCoreApplication app(argc, argv);
+    QApplication app(argc, argv);
 
-    // Initialize WebSocket server
-    QWebSocketServer webSocketServer(QStringLiteral("SoundScrolls WebSocket Server"), QWebSocketServer::NonSecureMode);
-    if (webSocketServer.listen(QHostAddress::Any, 12345))
-    {
-        qDebug() << "WebSocket Server listening on port" << 12345;
-    }
+    QWidget window;
+    window.setWindowTitle("File Browser");
 
-    // Initialize SQLite database
-    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    db.setDatabaseName("soundscrolls");
+    QVBoxLayout *layout = new QVBoxLayout;
+    QHBoxLayout *topLayout = new QHBoxLayout;
 
-    if (!db.open())
-    {
-        qDebug() << "Could not open SQLite database.";
-    }
-    else
-    {
-        qDebug() << "SQLite database opened.";
-    }
+    QLineEdit *pathEdit = new QLineEdit;
+    QLineEdit *searchEdit = new QLineEdit;
 
-    // TODO: Implement folder watching, REST API, etc.
+    topLayout->addWidget(pathEdit);
+    topLayout->addWidget(searchEdit);
+
+    QSplitter *splitter = new QSplitter;
+
+    QTreeView *treeView = new QTreeView(splitter);
+    QTableView *tableView = new QTableView(splitter);
+
+    QFileSystemModel *dirModel = new QFileSystemModel;
+    dirModel->setFilter(QDir::NoDotAndDotDot | QDir::AllDirs);
+    treeView->setModel(dirModel);
+
+    QFileSystemModel *fileModel = new QFileSystemModel;
+    fileModel->setFilter(QDir::NoDotAndDotDot | QDir::Files);
+    tableView->setModel(fileModel);
+
+    QObject::connect(treeView->selectionModel(), &QItemSelectionModel::selectionChanged,
+                     [&](){
+                         QModelIndex index = treeView->currentIndex();
+                         QString path = dirModel->fileInfo(index).absoluteFilePath();
+                         tableView->setRootIndex(fileModel->setRootPath(path));
+                     });
+
+    layout->addLayout(topLayout);
+    layout->addWidget(splitter);
+
+    window.setLayout(layout);
+    window.show();
 
     return app.exec();
 }
